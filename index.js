@@ -99,14 +99,20 @@ client.once(Events.ClientReady, async () => {
   }
 })
 
-
+// Create a 'Join' button to trigger the grid
+const joinButtonRow = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setCustomId('start')
+    .setLabel('Pick Availability')
+    .setStyle(ButtonStyle.Primary)
+);
 
 client.on('messageCreate', async (message) => {
   if (message.content === '!s') {
-    // Send the message with the grid of buttons
+    // Send the 'Join' button to the user
     await message.reply({
-      content: "Select your available time slots:",
-      components: rows,
+      content: "Click to select your available time slots:",
+      components: [joinButtonRow],
     });
   }
 });
@@ -114,6 +120,16 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   const user = interaction.user;
+
+  // If the user clicked the 'Pick Availability' button
+  if (interaction.customId === 'start') {
+    // Send the grid with time slots and make it ephemeral
+    await interaction.reply({
+      content: "Select your available time slots:",
+      components: rows,
+      ephemeral: true, // Make the response ephemeral
+    });
+  }
 
   // Modify the button color for the user who clicked it
   if (interaction.customId.includes('available_')) {
