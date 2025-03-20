@@ -16,6 +16,7 @@ const client = new Client({
 let availability = {};
 let usersSubmitted = new Set(); // Track users who have clicked submit
 let rows = [];
+let commandInitiator = null;
 
 const timeSlots = [
   "𝟶𝟿꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
@@ -109,6 +110,7 @@ const joinButtonRow = new ActionRowBuilder().addComponents(
 
 client.on('messageCreate', async (message) => {
   if (message.content === '!s') {
+    commandInitiator = message.author.username;
     // Send the 'Join' button to the user
     await message.reply({
       content: "Click to select your available time slots:",
@@ -192,34 +194,65 @@ client.on('interactionCreate', async (interaction) => {
       // Sort time slots by highest availability count
       let sortedTimes = Object.entries(timeScores)
         .sort((a, b) => b[1] - a[1]) // Descending order of people available
-        .filter(([_, count]) => count > 0); // Ignore empty slots
+        .filter(([_, count]) => count > 0) // Ignore empty slots
+        .slice(0, 3); // Take top 3 slots
 
       if (sortedTimes.length > 0) {
-        let maxCount = sortedTimes[0][1]; // Get the highest availability count
+        // let maxCount = sortedTimes[0][1]; // Get the highest availability count
 
-        let bestTimes = sortedTimes
-          .filter(([_, count]) => count === maxCount) // Keep only slots with max count
-          .map(([key, count]) => {
-            let [dayIndex, timeIndex] = key.split('-').map(Number);
-            return `${daysOfWeek[dayIndex]} ${timeSlots[timeIndex]} (${count} available)`;
+        let bestTimeButtons = sortedTimes.map(([key, count]) => {
+          let [dayIndex, timeIndex] = key.split('-').map(Number);
+          let label = `${daysOfWeek[dayIndex]} ${timeSlots[timeIndex]} (${count} available)`;
+          return new ButtonBuilder()
+            .setCustomId(`finalchoice_${dayIndex}_${timeIndex}`)
+            .setLabel(label)
+            .setStyle(ButtonStyle.Primary);
+        });
+
+        let bestTimeRow = new ActionRowBuilder().addComponents(bestTimeButtons);
+
+        let initiator = allUsers.find(member => member.user.username === commandInitiator);
+        if (initiator) {
+          await initiator.send({
+            content: "📅 **Please choose the final meeting time:**",
+            components: [bestTimeRow],
           });
+        } else {
+          await interaction.channel.send("❌ The original initiator is not found.");
+        }
 
-        await interaction.channel.send(`📅 **Top suggested meeting times:**\n${bestTimes.join('\n')}`);
+        allUsers.forEach((member) => {
+          availability[member.user.username] = [new Set(), new Set(), new Set(), new Set(), new Set()];
+        });
+        usersSubmitted.clear();
       } else {
         await interaction.channel.send("❌ No common time slots found. Please try again later.");
       }
-
-      // Reset data
-      allUsers.forEach((member) => {
-        availability[member.user.username] = [new Set(), new Set(), new Set(), new Set(), new Set()];
-      })
-      usersSubmitted.clear();
     } else {
       await interaction.reply({ 
         content: `✅ Thank you for submitting, ${user.username}! Waiting for others... (${usersSubmitted.size}/${totalUsers})`, 
         ephemeral: true 
       });
     }
+  }
+
+  // Handle final selection
+  if (interaction.customId.startsWith('finalchoice_')) {
+    if (user.username !== commandInitiator) {
+      return interaction.reply({
+        content: "❌ Only the original initiator can select the final time.",
+        ephemeral: true,
+      });
+    }
+
+    const weekdays = [
+      "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"
+    ]
+
+    const [_, dayIndex, timeIndex] = interaction.customId.split('_').map(Number);
+    let finalTime = `${weekdays[dayIndex]} ${timeSlots[timeIndex]}`;
+
+    await interaction.channel.send(`✅ **The final meeting time is set for:** ${finalTime}`);
   }
 });
 
