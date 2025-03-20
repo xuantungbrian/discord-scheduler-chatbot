@@ -85,40 +85,40 @@ client.on('messageCreate', async (message) => {
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
-
   const user = interaction.user;
-  const timeSlotIndex = interaction.customId.split('_')[1];
-  const timeSlot = timeSlots[timeSlotIndex];
+  
+  // // Mark the time slot for the user
+  // if (!availability[user.username]) {
+  //   availability[user.username] = [];
+  // }
 
-  // Mark the time slot for the user
-  if (!availability[user.username]) {
-    availability[user.username] = [];
-  }
-
-  // Add the user to the time slot
-  if (!availability[user.username].includes(timeSlot)) {
-    availability[user.username].push(timeSlot);
-  }
+  // // Add the user to the time slot
+  // if (!availability[user.username].includes(timeSlot)) {
+  //   availability[user.username].push(timeSlot);
+  // }
 
   // Modify the button color for the user who clicked it
   if (interaction.customId.includes('available_')) {
-    const timeSlotButtonRow = new ActionRowBuilder();
+    const chosenTimeIndex = parseInt(interaction.customId.split('_')[1])
+    const chosenDayIndex = parseInt(interaction.customId.split('_')[2])
+    let chosenTime = timeSlots[chosenTimeIndex];
+    const chosenDay = daysOfWeek[chosenDayIndex];
+    if (chosenDayIndex == 1) {
+      chosenTime += "᲼"
+    }
 
-    // Add updated buttons for the clicked user, changing the color of the selected button
-    timeSlots.forEach((timeSlot, index) => {
-      const buttonStyle = interaction.customId.includes(index.toString()) ? ButtonStyle.Success : ButtonStyle.Secondary;
-      timeSlotButtonRow.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`available_${index}`)
-          .setLabel(timeSlot)
-          .setStyle(buttonStyle)
-      );
-    });
+    rows[chosenTimeIndex+1].components[chosenDayIndex] = new ButtonBuilder()
+      .setCustomId(interaction.customId)  // Retain the same customId
+      .setLabel(chosenTime)  // Optional: change the label
+      .setStyle(ButtonStyle.Success);
+    
+    // TODO: Might need to make a copy of rows instead of doing this since it might also updated for other users
 
-    // Edit the message with the new button color for the clicked user
+    // Edit the message with the updated button rows
     await interaction.update({
-      content: `You selected: ${timeSlot}`,
-      components: [timeSlotButtonRow],
+      content: `You selected: ${chosenTime} on ${chosenDay}`,
+      components: rows,
+      ephemeral: true, //TODO: Not sure if need this
     });
   }
 
