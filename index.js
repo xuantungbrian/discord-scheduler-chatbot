@@ -70,6 +70,8 @@ submitRow.addComponents(
 );
 rows.push(submitRow)
 
+let allUsers
+
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
@@ -84,7 +86,7 @@ client.once(Events.ClientReady, async () => {
 
     console.log(`Bot is in the guild: ${guild.name} (ID: ${guild.id})`);
 
-    const allUsers = await guild.members.fetch(); // Fetch all members in the guild
+    allUsers = await guild.members.fetch(); // Fetch all members in the guild
     
     // Initialize availability for non-bot users
     allUsers.forEach((member) => {
@@ -126,8 +128,9 @@ client.on('interactionCreate', async (interaction) => {
         if (x == 1) {
           chosenTime += "᲼"
         }
+
         rowsCopy[y + 1].components[x] = new ButtonBuilder()
-            .setCustomId(`available_${x}_${y}`)
+            .setCustomId(`available_${y}_${x}`)
             .setLabel(chosenTime)
             .setStyle(ButtonStyle.Success);
       })
@@ -136,7 +139,7 @@ client.on('interactionCreate', async (interaction) => {
     // Edit the message with the updated button rows
     await interaction.update({
       components: rowsCopy,
-      ephemeral: true, //TODO: Not sure if need this
+      ephemeral: true,
     });
   }
 
@@ -145,55 +148,87 @@ client.on('interactionCreate', async (interaction) => {
     usersSubmitted.add(user.username); // Track user submission
 
     // Fetch all members of the guild (excluding bots)
-    const allUsers = await interaction.guild.members.fetch();
     const totalUsers = allUsers.filter(member => !member.user.bot).size;
 
-    // Check if all non-bot users have submitted their availability
+    // If all users have submitted, process availability
     if (usersSubmitted.size === totalUsers) {
-      // All users have submitted, now calculate the best time slots
-      let availableTimes = [];
-
-      // Iterate over all time slots and find common availability
-      timeSlots.forEach((timeSlot, timeIndex) => {
-        let availableCount = 0;
-        for (let user in availability) {
-          if (availability[user].some(day => day.has(timeIndex))) {
-            availableCount++;
-          }
-        }
-        // If every user has selected this time slot, add it to the availableTimes
-        if (availableCount === totalUsers) {
-          availableTimes.push(timeSlot); // Add to the list if all users are available at this time
-        }
+      await interaction.reply({ 
+        content: `✅ Thank you for submitting, ${user.username}!`, 
+        ephemeral: true 
       });
 
-      // Send out the best available times
-      if (availableTimes.length > 0) {
-        await interaction.channel.send(`The best times for everyone to meet are: ${availableTimes.join(', ')}`);
+      let timeScores = {}; // Map time slots to number of people available
+
+      // Count how many users are available at each time slot across all days
+      daysOfWeek.forEach((_, dayIndex) => {
+        timeSlots.forEach((timeSlot, timeIndex) => {
+          const key = `${dayIndex}-${timeIndex}`;
+          timeScores[key] = 0;
+          
+          for (let user in availability) {
+            if (availability[user][dayIndex].has(timeIndex)) {
+              timeScores[key]++;
+            }
+          }
+        });
+      });
+
+      // Sort time slots by highest availability count
+      let sortedTimes = Object.entries(timeScores)
+        .sort((a, b) => b[1] - a[1]) // Descending order of people available
+        .filter(([_, count]) => count > 0); // Ignore empty slots
+
+      if (sortedTimes.length > 0) {
+        let maxCount = sortedTimes[0][1]; // Get the highest availability count
+
+        let bestTimes = sortedTimes
+          .filter(([_, count]) => count === maxCount) // Keep only slots with max count
+          .map(([key, count]) => {
+            let [dayIndex, timeIndex] = key.split('-').map(Number);
+            return `${daysOfWeek[dayIndex]} ${timeSlots[timeIndex]} (${count} available)`;
+          });
+
+        await interaction.channel.send(`📅 **Top suggested meeting times:**\n${bestTimes.join('\n')}`);
       } else {
-        await interaction.channel.send("No common time slots found. Please try again later.");
+        await interaction.channel.send("❌ No common time slots found. Please try again later.");
       }
 
-      // Reset after calculating
-      availability = {}; // Clear availability data
-      usersSubmitted.clear(); // Reset submitted users
+      // Reset data
+      allUsers.forEach((member) => {
+        availability[member.user.username] = [new Set(), new Set(), new Set(), new Set(), new Set()];
+      })
+      usersSubmitted.clear();
     } else {
-      await interaction.reply({ content: `Thank you for submitting, ${user.username}! Waiting for others to submit...`, ephemeral: true });
+      await interaction.reply({ 
+        content: `✅ Thank you for submitting, ${user.username}! Waiting for others... (${usersSubmitted.size}/${totalUsers})`, 
+        ephemeral: true 
+      });
     }
   }
 });
 
-// Command to display the availability grid
-client.on('messageCreate', async (message) => {
-  if (message.content === '!showSchedule') {
-    let schedule = 'Availability Schedule:\n';
+const createDiscordEvent = async (guild, eventTime) => {
+  const startTime = new Date(); // Replace this with actual parsed time from eventTime
+  startTime.setMinutes(0, 0, 0); // Example: Round to the nearest hour
 
-    timeSlots.forEach((timeSlot) => {
-      schedule += `${timeSlot}: ${availability[timeSlot] ? availability[timeSlot].join(', ') : 'No one'}\n`;
-    });
+  const endTime = new Date(startTime);
+  endTime.setHours(startTime.getHours() + 1); // 1-hour event duration (adjust as needed)
 
-    await message.reply(schedule);
+  try {
+      const event = await guild.scheduledEvents.create({
+          name: `📅 Community Event - ${eventTime}`,
+          scheduledStartTime: startTime.toISOString(),
+          scheduledEndTime: endTime.toISOString(),
+          privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+          entityType: GuildScheduledEventEntityType.Voice,
+          description: `An event scheduled at ${eventTime}. Be sure to join!`,
+          channel: guild.channels.cache.find(c => c.type === 2), // Select a voice channel
+      });
+
+      guild.systemChannel.send(`📢 **New Event Created!**\n📅 **${event.name}**\n🕒 **Time:** ${eventTime}\n🔗 [Join Event](${event.url})`);
+  } catch (error) {
+      console.error('Error creating event:', error);
   }
-});
+};
 
 client.login(process.env.TOKEN);
