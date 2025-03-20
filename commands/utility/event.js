@@ -1,21 +1,18 @@
 const { SlashCommandBuilder } = require("discord.js")
-
-const scheduledEvents = new Map();
+const { potentialEvents } = require('../../datastore/data.js')
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('event')
         .setDescription('Schedule an event!'),
     
-    async execute(interaction) {
+    execute: async (interaction) => {
         const currChannel = interaction.channel;
         const currUser = interaction.user;
         try {
             // Start event setup
             await interaction.reply("Starting event setup... Type `cancel` anytime to stop.\n" + 
                                     "What is the event name?");
-            
-            console.log(1)
             // Event name prompt
             const eventNameResponse = await currChannel.awaitMessages({ 
                 filter: (msg) => msg.author.id == currUser.id, 
@@ -41,7 +38,7 @@ module.exports = {
             if (isNaN(eventLength) || eventLength <= 0 || eventLength > 24) return interaction.followUp("Event setup cancelled.");
 
             // Event day prompt
-            await interaction.followUp("What days of the week could the event be on? \n" + 
+            await interaction.followUp("What days of the week could the event be on? (choose up to 5) \n" + 
                                        "Enter one day for a specific day of week (`friday`), \n" + 
                                        "or multiple options like so: `monday, tuesday, friday`");
 
@@ -67,7 +64,7 @@ module.exports = {
             await interaction.followUp(`You have selected: ${eventDays.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(", ")}`);
 
             // Create event invite
-            await interaction.followUp(`Creating event...`);
+            await interaction.followUp(`Creating potential event...`);
             const eventMessage = await interaction.followUp(
                 `📅 **Let's check our schedules!** 📅\n\n` +
                 `**Event:** ${eventName}\n` +
@@ -75,6 +72,13 @@ module.exports = {
                 `**Potential days:** ${eventDays.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(", ")}\n` + 
                 `@everyone React below to confirm your interest:\n✅ - Interested\n❌ - Not Interested`
             );
+
+            potentialEvents.set({
+                name: eventName,
+                length: eventLength,
+                availDays: eventDays,
+                participants: new Set()
+            })
 
             // Add reactions for user response
             await eventMessage.react("✅");
