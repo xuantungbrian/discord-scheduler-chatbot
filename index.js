@@ -28,18 +28,18 @@ client.on('messageCreate', async (message) => {
     
     // TODO: Add alignment later
     const timeSlots = [
-      "𝟶𝟿:𝟶𝟶 𝙰𝙼",
-      "𝟷𝟶:𝟶𝟶 𝙰𝙼",
-      "𝟷𝟷:𝟶𝟶 𝙰𝙼",
-      "𝟷𝟸:𝟶𝟶 𝙿𝙼"
+      "𝟶𝟿꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
+      "𝟷𝟶꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
+      "𝟷𝟷꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
+      "𝟷𝟸꞉𝟶𝟶᲼𝙿𝙼᲼᲼"
     ];
     
     const daysOfWeek = [
-      "𝙼𝚘𝚗𝚍𝚊𝚢 ",
-      "𝚃𝚞𝚎𝚜𝚍𝚊𝚢",
+      "𝙼𝚘𝚗𝚍𝚊𝚢᲼᲼᲼᲼",
+      "𝚃𝚞𝚎𝚜𝚍𝚊𝚢᲼᲼᲼",
       "𝚆𝚎𝚍𝚗𝚎𝚜𝚍𝚊𝚢",
-      "𝚃𝚑𝚞𝚛𝚜𝚍𝚊𝚢",
-      "𝙵𝚛𝚒𝚍𝚊𝚢 "
+      "𝚃𝚑𝚞𝚛𝚜𝚍𝚊𝚢᲼",
+      "𝙵𝚛𝚒𝚍𝚊𝚢᲼᲼᲼"
     ];
 
     // Add buttons for days of the week
@@ -58,10 +58,14 @@ client.on('messageCreate', async (message) => {
     timeSlots.forEach((timeSlot, index) => {
       const timeRow = new ActionRowBuilder();
       for (let i = 0; i < 5; i++) {
+        let timeSlotWithPadding = timeSlot
+        if (i == 1) {
+          timeSlotWithPadding += "᲼"
+        }
         timeRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`available_${index}_${i}`)
-            .setLabel(timeSlot)
+            .setLabel(timeSlotWithPadding)
             .setStyle(ButtonStyle.Secondary)
         );
       }
