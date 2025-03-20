@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, TeamMemberMembershipState } from 'discord.js';
+import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, TeamMemberMembershipState, GuildScheduledEventPrivacyLevel } from 'discord.js';
 import { config } from 'dotenv';
 
 config(); // Load environment variables from .env
@@ -30,6 +30,20 @@ const daysOfWeek = [
   "𝚃𝚑𝚞𝚛𝚜𝚍𝚊𝚢᲼",
   "𝙵𝚛𝚒𝚍𝚊𝚢᲼᲼᲼"
 ];
+
+const normalTimeSlots = [
+  "09:00 AM",
+  "10:00 AM",
+  "11:00 AM",
+]
+
+const normalDaysOfWeek = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+]
     
 // Add buttons for days of the week
 let currentRow = new ActionRowBuilder();
@@ -198,13 +212,79 @@ client.on('interactionCreate', async (interaction) => {
         let maxCount = sortedTimes[0][1]; // Get the highest availability count
 
         let bestTimes = sortedTimes
-          .filter(([_, count]) => count === maxCount) // Keep only slots with max count
-          .map(([key, count]) => {
-            let [dayIndex, timeIndex] = key.split('-').map(Number);
-            return `${daysOfWeek[dayIndex]} ${timeSlots[timeIndex]} (${count} available)`;
-          });
+          .filter(([_, count]) => count === maxCount)
+          .slice(0, 3)
 
-        await interaction.channel.send(`📅 **Top suggested meeting times:**\n${bestTimes.join('\n')}`);
+        const pollDuration = 10000; // 2 minutes poll duration
+        const pollEmojis = ["1️⃣", "2️⃣", "3️⃣"];
+  
+        const pollResults = {};
+  
+        // Inside the final time selection logic, replace the initiator message part:
+        let pollMessageContent = "**Vote for the final meeting time!**\nReact with the corresponding emoji:\n";
+        bestTimes.forEach(([key, count], i) => {
+          let [dayIndex, timeIndex] = key.split('-').map(Number);
+          let label = `${pollEmojis[i]} - ${normalDaysOfWeek[dayIndex]} ${normalTimeSlots[timeIndex]}`;
+          pollResults[pollEmojis[i]] = { dayIndex, timeIndex, votes: 0 };
+          pollMessageContent += `${label}\n`;
+        });
+
+        let pollMessage = await interaction.channel.send(pollMessageContent);
+        
+        for (let i = 0; i < sortedTimes.length; i++) {
+          await pollMessage.react(pollEmojis[i]);
+        }
+
+        setTimeout(async () => {
+          // Fetch reactions and count votes
+          let fetchedMessage = await interaction.channel.messages.fetch(pollMessage.id);
+          
+          // Loop through each emoji and count only user reactions
+          for (let i = 0; i < sortedTimes.length; i++) {
+            let emoji = pollEmojis[i];
+            let reaction = fetchedMessage.reactions.cache.get(emoji);
+            
+            if (reaction) {
+              await reaction.users.fetch();
+              // Filter out the bot's reaction (assuming the bot has reacted)
+              let userReactions = reaction.users.cache.filter(user => user.id !== interaction.client.user.id);
+              
+              // Count only the users' reactions
+              pollResults[emoji].votes = userReactions.size;
+            }
+          }
+        
+          // Determine the winner
+          let bestOption = Object.entries(pollResults)
+            .sort((a, b) => b[1].votes - a[1].votes)[0][1];
+        
+          let finalTime = `${normalDaysOfWeek[bestOption.dayIndex]} ${normalTimeSlots[bestOption.timeIndex]}`;
+        
+          await interaction.channel.send(`🏆 **The final meeting time is set for:** ${finalTime}`)
+
+          // Create the event (example: Discord Event creation)
+          const eventTime = calculateEventTime(bestOption.dayIndex, normalTimeSlots[bestOption.timeIndex]);
+          let voiceChannel = await interaction.guild.channels.fetch();
+          voiceChannel = voiceChannel.find(channel => channel.type === 2);
+          try {
+            // Creating an event (Discord Event Example)
+            await interaction.guild.scheduledEvents.create({
+              name: `Meeting: ${finalTime}`,
+              description: 'Scheduled meeting',
+              scheduledStartTime: eventTime,
+              scheduledEndTime: new Date(eventTime.getTime() + 60 * 60 * 1000), // 1-hour duration
+              entityType: 3,
+              privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
+              entityMetadata: {
+                location: "Online",
+              },
+            });
+            await interaction.channel.send(`🗓️ **Event created!** The meeting is scheduled for ${finalTime}`);
+          } catch (error) {
+            console.error('Error creating event:', error);
+            await interaction.channel.send('❌ **Failed to create event.** Please try again.');
+          }
+        }, pollDuration);
       } else {
         await interaction.channel.send("❌ No common time slots found. Please try again later.");
       }
@@ -223,28 +303,43 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-const createDiscordEvent = async (guild, eventTime) => {
-  const startTime = new Date(); // Replace this with actual parsed time from eventTime
-  startTime.setMinutes(0, 0, 0); // Example: Round to the nearest hour
+function calculateEventTime(targetDayIndex, timeString) {
+  // Parse the time string (handle 12-hour format)
+  let [hour, minute, period] = timeString.split(':');
+  minute = minute.split(' ')[0]; // Remove the "AM/PM" part if present
+  hour = parseInt(hour, 10);
 
-  const endTime = new Date(startTime);
-  endTime.setHours(startTime.getHours() + 1); // 1-hour event duration (adjust as needed)
-
-  try {
-      const event = await guild.scheduledEvents.create({
-          name: `📅 Community Event - ${eventTime}`,
-          scheduledStartTime: startTime.toISOString(),
-          scheduledEndTime: endTime.toISOString(),
-          privacyLevel: GuildScheduledEventPrivacyLevel.GuildOnly,
-          entityType: GuildScheduledEventEntityType.Voice,
-          description: `An event scheduled at ${eventTime}. Be sure to join!`,
-          channel: guild.channels.cache.find(c => c.type === 2), // Select a voice channel
-      });
-
-      guild.systemChannel.send(`📢 **New Event Created!**\n📅 **${event.name}**\n🕒 **Time:** ${eventTime}\n🔗 [Join Event](${event.url})`);
-  } catch (error) {
-      console.error('Error creating event:', error);
+  if (period && (period.toUpperCase() === 'PM' && hour !== 12)) {
+    hour += 12; // Convert PM to 24-hour format
+  } else if (period && (period.toUpperCase() === 'AM' && hour === 12)) {
+    hour = 0; // Convert 12 AM to 00:00 hours
   }
-};
+
+  // Get the current date
+  const currentDate = new Date();
+  let eventDate = new Date(currentDate);
+
+  // Set the current time to 00:00 to focus on the day first
+  eventDate.setHours(0, 0, 0, 0);
+
+  // Calculate the difference in days to the target day
+  let diffDays = targetDayIndex - eventDate.getDay();
+  if (diffDays <= 0) {
+    diffDays += 7; // If the target day has already passed this week, set it to next week
+  }
+
+  // Adjust the event date to the target day of the week
+  eventDate.setDate(eventDate.getDate() + diffDays);
+
+  // Set the event time (using the parsed hour and minute)
+  eventDate.setHours(hour, minute, 0, 0);
+
+  // If the calculated time has already passed, set it for the next week
+  if (eventDate < new Date()) {
+    eventDate.setDate(eventDate.getDate() + 7);
+  }
+
+  return eventDate;
+}
 
 client.login(process.env.TOKEN);
