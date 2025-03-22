@@ -325,7 +325,7 @@ function calculateEventTime(targetDayIndex, timeString) {
   // Calculate the difference in days to the target day
   let diffDays = targetDayIndex - eventDate.getDay();
   if (diffDays <= 0) {
-    diffDays += 7; // If the target day has already passed this week, set it to next week
+    diffDays += 7 + 1; // If the target day has already passed this week, set it to next week
   }
 
   // Adjust the event date to the target day of the week
