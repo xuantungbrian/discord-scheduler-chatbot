@@ -19,6 +19,7 @@
     "dev" : "nodemon --legacy-watch --exitcrash index.js"
   },
   "dependencies": {
+    "@discordjs/builders": "^1.10.1",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7"
   },
