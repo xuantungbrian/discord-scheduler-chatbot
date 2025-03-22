@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle, TeamMemberMembershipState } from 'discord.js';
 import { config } from 'dotenv';
+import { availability, usersSubmitted, timeSlots, daysOfWeek } from './data/constants.js'
 
 config(); // Load environment variables from .env
 
@@ -13,24 +14,8 @@ const client = new Client({
 });
 
 // Store user availability for each time slot
-let availability = {};
-let usersSubmitted = new Set(); // Track users who have clicked submit
 let rows = [];
 let commandInitiator = null;
-
-const timeSlots = [
-  "𝟶𝟿꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
-  "𝟷𝟶꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
-  "𝟷𝟷꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
-];
-
-const daysOfWeek = [
-  "𝙼𝚘𝚗𝚍𝚊𝚢᲼᲼᲼᲼",
-  "𝚃𝚞𝚎𝚜𝚍𝚊𝚢᲼᲼᲼",
-  "𝚆𝚎𝚍𝚗𝚎𝚜𝚍𝚊𝚢",
-  "𝚃𝚑𝚞𝚛𝚜𝚍𝚊𝚢᲼",
-  "𝙵𝚛𝚒𝚍𝚊𝚢᲼᲼᲼"
-];
     
 // Add buttons for days of the week
 let currentRow = new ActionRowBuilder();
