@@ -1,7 +1,8 @@
 export const timeSlots = [
-  "𝟶𝟿꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
-  "𝟷𝟶꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
-  "𝟷𝟷꞉𝟶𝟶᲼𝙰𝙼᲼᲼",
+  "᲼𝟶𝟿꞉𝟶𝟶᲼𝙰𝙼᲼",
+  "᲼𝟷𝟶꞉𝟶𝟶᲼𝙰𝙼᲼",
+  "᲼𝟷𝟷꞉𝟶𝟶᲼𝙰𝙼᲼",
+  "᲼𝟷𝟸꞉𝟶𝟶᲼𝙰𝙼᲼",
 ];
 
 export const daysOfWeek = [
@@ -16,6 +17,7 @@ export const normalTimeSlots = [
   "09:00 AM",
   "10:00 AM",
   "11:00 AM",
+  "12:00 AM"
 ]
 
 export const normalDaysOfWeek = [

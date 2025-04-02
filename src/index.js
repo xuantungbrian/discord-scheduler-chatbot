@@ -51,16 +51,16 @@ client.once(Events.ClientReady, async () => {
 })
     
 // Add buttons for days of the week
-let currentRow = new ActionRowBuilder();
-daysOfWeek.forEach((day, index) => {
-  currentRow.addComponents(
-    new ButtonBuilder()
-      .setCustomId(`available_day_${index}`)
-      .setLabel(day)
-      .setStyle(ButtonStyle.Primary)
-  );
-});
-rows.push(currentRow);
+// let currentRow = new ActionRowBuilder();
+// daysOfWeek.forEach((day, index) => {
+//   currentRow.addComponents(
+//     new ButtonBuilder()
+//       .setCustomId(`available_day_${index}`)
+//       .setLabel(day)
+//       .setStyle(ButtonStyle.Primary)
+//   );
+// });
+// rows.push(currentRow);
 
 // Add buttons for time slots
 timeSlots.forEach((timeSlot, index) => {
@@ -95,13 +95,20 @@ client.on('messageCreate', async (message) => await s_handler(message));
 // interaction_start
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
-  if (interaction.customId !== 'start') return;
-  
-  await interaction.reply({
-    content: "Select your available time slots:",
-    components: rows,
-    ephemeral: true, // Make the response ephemeral
-  });
+  if (interaction.customId === 'start') {
+    // Send the grid with time slots and make it ephemeral
+    let content = "Select your available time slots: \n\n"
+    content += "       𝙼𝚘𝚗𝚍𝚊𝚢"
+    content += "                 𝚃𝚞𝚎𝚜𝚍𝚊𝚢"
+    content += "             𝚆𝚎𝚍𝚗𝚎𝚜𝚍𝚊𝚢"
+    content += "          𝚃𝚑𝚞𝚛𝚜𝚍𝚊𝚢"
+    content += "              𝙵𝚛𝚒𝚍𝚊𝚢\n"
+    await interaction.reply({
+      content, 
+      components: rows,
+      ephemeral: true, // Make the response ephemeral
+    });
+  }
 });
 
 // interaction_available
@@ -122,7 +129,7 @@ client.on('interactionCreate', async (interaction) => {
         chosenTime += "᲼"
       }
 
-      rowsCopy[y + 1].components[x] = new ButtonBuilder()
+      rowsCopy[y].components[x] = new ButtonBuilder()
         .setCustomId(`available_${y}_${x}`)
         .setLabel(chosenTime)
         .setStyle(ButtonStyle.Success);
@@ -139,7 +146,7 @@ client.on('interactionCreate', async (interaction) => {
 // interaction_submit
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
-  if (!interaction.customId !== 'submit') return;
+  if (interaction.customId !== 'submit') return;
   const user = interaction.user;
 
   usersSubmitted.add(user.username); // Track user submission
@@ -190,7 +197,7 @@ client.on('interactionCreate', async (interaction) => {
 
     let pollMessage = await interaction.channel.send(pollMessageContent);
     
-    for (let i = 0; i < sortedTimes.length; i++) {
+    for (let i = 0; i < bestTimes.length; i++) {
       await pollMessage.react(pollEmojis[i]);
     }
 
